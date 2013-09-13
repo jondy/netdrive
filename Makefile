@@ -1,5 +1,4 @@
-PYTHON = /opt/slapnode/bin/py
-PYTHON = python
+PYTHON = /usr/bin/python
 
 .PHONY : test 
 

@@ -27,13 +27,14 @@
 #
 ##############################################################################
 import argparse
-from datetime import datetime, date
-from lxml import etree
-import netuse
 import os.path
 import slapos.slap.slap
 import sqlite3
 import sys
+import xmlrpclib
+
+from datetime import datetime, date
+from lxml import etree
 from time import sleep
 
 def parseArgumentTuple():
@@ -59,9 +60,13 @@ def parseArgumentTuple():
     parser.add_argument("--data-file",
                         help="File used to save report data.",
                         default="net_drive_usage_report.data")
-    parser.add_argument("--server-name",
-                        help="Interval in seconds to send report to master.",
-                        default="")
+    parser.add_argument("--port",
+                        help="RPC Port of SlapMonitor.",
+                        default=8008)
+    parser.add_argument("--batch",
+                        help="If True, send report per day at mid-night. "
+                             "Otherwise send report instantly.",
+                        default=False)
     option = parser.parse_args()
 
     # Build option_dict
@@ -85,8 +90,9 @@ class NetDriveUsageReporter(object):
       self._report_date = None
       self.report_interval = float(self.report_interval)
       self.initializeDatabase(self.data_file)
-
-    def initializeConnection(self):        
+      self.slap_monitor_uri = 'http://localhost:%d' % option_dict['port']
+      
+    def initializeConnection(self):
         connection_dict = {}
         connection_dict['key_file'] = self.key_file
         connection_dict['cert_file'] = self.cert_file
@@ -96,8 +102,7 @@ class NetDriveUsageReporter(object):
         self._slap_computer = slap.registerComputer(self.computer_id)
 
     def initializeConfigData(self):
-        user_info = netuse.userInfo()
-        self._domain_account = "%s\\%s" % user_info[1:3]
+        self._domain_account = "SlapMonitor"
 
         q = self._db.execute
         s = "SELECT _rowid_, report_date FROM config " \
@@ -117,14 +122,16 @@ class NetDriveUsageReporter(object):
         self.sendAllReport()
         self.initializeConnection()
         last_timestamp = datetime.now()
+        interval = 30.0 if self.report_interval > 60 else (self.report_interval / 2)
         try:
+            monitor = xmlrpclib.ServerProxy(self.slap_monitor_uri)
             while True:
                 current_timestamp = datetime.now()
                 d = current_timestamp - last_timestamp
                 if d.seconds < self.report_interval:
-                    sleep(self.report_interval)
+                    sleep(interval)
                     continue
-                self.insertUsageReport(last_timestamp.isoformat(), d.seconds)
+                self.insertUsageReport(monitor, last_timestamp.isoformat(), d.seconds)
                 self.sendReport()
                 last_timestamp = current_timestamp
         except KeyboardInterrupt:
@@ -132,20 +139,20 @@ class NetDriveUsageReporter(object):
         finally:
             self._db.close()
 
-    def insertUsageReport(self, start, duration):
+    def insertUsageReport(self, monitor, start, duration):
         q = self._db.execute
-        for r in netuse.usageReport(self.server_name):
+        for r in monitor.usageReport():
             q( "INSERT INTO net_drive_usage "
-               "(config_id, drive_letter, remote_folder, "
+               "(config_id, domain_user, drive_letter, remote_folder, "
                " start, duration, usage_bytes )"
                " VALUES (?, ?, ?, ?, ?, ?)",
-               (self._config_id, r[0], r[1], start, duration, r[3] - r[2]))
+               (self._config_id, r[0], r[1], r[2], start, duration, r[4] - r[3]))
 
     def sendAllReport(self):
         """Called at startup of this application, send all report
           in the config table."""
         q = self._db.execute
-        for r in q("SELECT _rowid_, domain_account, computer_id, report_date "
+        for r in q("SELECT _rowid_, computer_id, report_date "
                    "FROM config "
                    "WHERE report_date < date('now')"):
             self._postData(self.generateDailyReport(*r))
@@ -159,10 +166,9 @@ class NetDriveUsageReporter(object):
         #    Change report_date to today
         #    (Optional) Move all the reported data to histroy table
         today = date.today().isoformat()
-        if self._report_date < today:
+        if (not self.batch) or self._report_date < today:
             self._postData(self.generateDailyReport(self._config_id,
                                                     self.computer_id,
-                                                    self._domain_account,
                                                     self._report_date))
             self._db.execute("UPDATE config SET report_date=? where _rowid_=?",
                              (today, self._config_id))
@@ -190,6 +196,7 @@ class NetDriveUsageReporter(object):
             config_id INTEGER REFERENCES config ( _rowid_ ),
             drive_letter TEXT NOT NULL,
             remote_folder TEXT NOT NULL,
+            domain_user TEXT NOT NULL,
             start TEXT DEFAULT CURRENT_TIMESTAMP,
             duration FLOAT NOT NULL,
             usage_bytes INTEGER,
@@ -198,16 +205,17 @@ class NetDriveUsageReporter(object):
             config_id INTEGER REFERENCES config ( _rowid_ ),
             drive_letter TEXT NOT NULL,
             remote_folder TEXT NOT NULL,
+            domain_user TEXT NOT NULL,
             start TEXT NOT NULL,
             duration FLOAT NOT NULL,
             usage_bytes INTEGER,
             remark TEXT)""")
 
-    def generateDailyReport(self, config_id, computer_id, domain_account,
-                                  report_date, remove=True):
+    def generateDailyReport(self, config_id, computer_id, report_date, remove=True):
         q = self._db.execute
         report = etree.Element("consumption")
-        for r in q("SELECT remote_folder, duration, usage_bytes  FROM net_drive_usage "
+        for r in q("SELECT domain_user, remote_folder, duration, usage_bytes  "
+                   "FROM net_drive_usage "
                    "WHERE config_id=? AND strftime('%Y-%m-%d', start)=?",
                    (config_id, report_date)):
             movement = etree.Element('movement')
@@ -221,7 +229,7 @@ class NetDriveUsageReporter(object):
             movement.append(element)
 
             element = etree.Element("reference")
-            element.text = domain_account
+            element.text = etree.Element("domain_user"),
             movement.append(element)
 
             element = etree.Element("reference")

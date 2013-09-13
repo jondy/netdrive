@@ -13,7 +13,7 @@ def get_description():
     finally:
         f.close()
 
-VERSION = "0.1.3"
+VERSION = "0.2.0"
 
 if sys.platform.startswith("cygwin"):
 
@@ -23,11 +23,11 @@ if sys.platform.startswith("cygwin"):
         return '0x0%s' % ((maj * 100) + min)
 
     extensions = [Extension('netuse',
-                            sources=['src/netuse.c'],
+                            sources=['netuse.c'],
                             define_macros=[('_WIN32_WINNT', '0x0503'),
                                            ('USE_SYS_TYPES_FD_SET', 1)],
                             libraries=["kernel32", "advapi32", "shell32",
-                                       "netapi32", "mpr"],
+                                       "netapi32", "mpr", "secur32"],
                             #extra_compile_args=["/Z7"],
                             #extra_link_args=["/DEBUG"]
                             )]
