@@ -22,7 +22,7 @@ netuse. It exports the following functions:
 
     List all the net drives visible by current user. Return a list:
     
-      [ (drive, remote, status, user), ... ] 
+        [ (drive, remote, status, user), ... ] 
     
     Not that if the calling application is running in a different
     logon session than the application that made the connection, it's
@@ -31,10 +31,12 @@ netuse. It exports the following functions:
     status is unavaliable or unconnect.
     
     Refer to Defining an MS-DOS Device Name
+    
     http://msdn.microsoft.com/en-us/library/windows/desktop/aa363908(v=vs.85).aspx
     
     
     Refer to Local and Global MS-DOS Device Names
+    
     http://msdn.microsoft.com/en-us/library/windows/hardware/ff554302(v=vs.85).aspx
     
 * mapNetDrive(remote, drive, user=None, password=None)
@@ -47,12 +49,13 @@ netuse. It exports the following functions:
     
     When drive is an empty string, the system will automatically assigns
     network drive letters, letters are assigned beginning with Z:, then
-    Y:, and ending with C:\n.
+    Y:, and ending with C:.
     
-    For examples
-      mapNetDrive(r'\\\\server\\data')
-      mapNetDrive(r'\\\\server\\data', 'T:')
-      mapNetDrive(r'\\\\server\\data', 'T:', r'\\\\server\\jack', 'abc')
+    For examples,
+    
+        mapNetDrive(r'\\\\server\\data')
+        mapNetDrive(r'\\\\server\\data', 'T:')
+        mapNetDrive(r'\\\\server\\data', 'T:', r'\\\\server\\jack', 'abc')
     
     Raise exception if something is wrong.
     
@@ -60,7 +63,7 @@ netuse. It exports the following functions:
 
     Remove mapped drive specified by drive, For example,
     
-      removeNetDrive('X:')
+        removeNetDrive('X:')
     
     Parameter force specifies whether the disconnection should occur
     if there are open files or jobs on the connection. If this
@@ -72,10 +75,12 @@ netuse. It exports the following functions:
 * usageReport(drive)
 
     Return a tuple to report the usage of the net drive:
-      (available, total)
+        
+        (available, total)
     
     For examples,
-      usageReport('Z:')
+    
+        usageReport('Z:')
     
     Raise exception if something is wrong.
     
@@ -83,7 +88,7 @@ netuse. It exports the following functions:
 
     Get the logon user information, return a tuple:
     
-      (server, domain, user)
+        (server, domain, user)
     
 
 Examples
