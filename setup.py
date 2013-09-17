@@ -6,7 +6,7 @@ import os
 from setuptools import setup, Extension
 
 def get_description():
-    README = os.path.abspath(os.path.join(os.path.dirname(__file__), 'README'))
+    README = os.path.abspath(os.path.join(os.path.dirname(__file__), 'README.md'))
     f = open(README, 'r')
     try:
         return f.read()

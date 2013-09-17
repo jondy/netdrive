@@ -251,7 +251,7 @@ netuse_list_drive(PyObject *self, PyObject *args)
                              (LPSTR) szUserName,
                              &cchBuff);
       if (dwResult != NO_ERROR)
-        snprintf(szUserName, "%s", MAX_PATH, "Unknown User");
+        snprintf(szUserName, MAX_PATH, "%s", "Unknown User");
       pobj = Py_BuildValue("ssss",
                            drivename,
                            szRemoteName,
